@@ -1,2 +1,2 @@
 # WebMessagingApp
-A messaging application with a web user interface. 
+A messaging application with a web user interface. Written in C++.
