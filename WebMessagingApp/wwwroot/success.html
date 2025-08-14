@@ -1,0 +1,34 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Success</title>
+  <style>
+    html, body { height:100%; margin:0; }
+    body {
+      display:flex; align-items:center; justify-content:center;
+      background: url('/static/ayi.jpg') center center / cover no-repeat fixed;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      color:#fff;
+    }
+    .card {
+      width:min(90%, 520px);
+      padding:24px 28px;
+      border-radius:16px;
+      background:rgba(0,0,0,0.55);
+      backdrop-filter: blur(3px);
+      box-shadow: 0 10px 30px rgba(0,0,0,.35);
+      text-align:center;
+    }
+    h1{margin:0 0 12px; font-size:28px;}
+    p{margin:0; opacity:.9;}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Welcome, {{username}} 🎉</h1>
+    <p>Login successful.</p>
+  </div>
+</body>
+</html>
