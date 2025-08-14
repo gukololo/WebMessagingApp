@@ -1,4 +1,6 @@
 #include "Client.h"
+#include <iostream>
+
 using namespace std;
 
 Client::Client(string nameToSet)
