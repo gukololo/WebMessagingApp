@@ -1,101 +1,4 @@
-﻿//#define WIN32_LEAN_AND_MEAN
-//#define NOMINMAX
-//
-//#include <winsock2.h>
-//#include <ws2tcpip.h>
-//#include <windows.h>
-//#include <shellapi.h>
-//#include <iostream>
-//#include <fstream>
-//#include <string>
-//
-//#include "httplib.h"
-//#include "Client.h"
-//#include "Message.h"
-//
-//#pragma comment(lib, "Ws2_32.lib")
-//#pragma comment(lib, "Shell32.lib")
-//
-//using namespace std;
-//string username;
-//vector<Client> clients; //storage for clients
-//vector<Message> messages; //storage for messages
-//
-///*
-//* method to read file to string
-//* @param path: path to the file
-//* @param out: output string to store the file content
-//* @return: true if file read successfully, false otherwise
-//**/
-//static bool read_text_file(const string& path, string& out) {
-//    ifstream f(path, ios::binary);
-//    if (!f) return false;
-//    out.assign(istreambuf_iterator<char>(f), istreambuf_iterator<char>());
-//    return true;
-//}
-//
-//static void replace_all(string& s, const string& from, const string& to) {
-//    if (from.empty()) return;
-//    size_t pos = 0;
-//    while ((pos = s.find(from, pos)) != string::npos) {
-//        s.replace(pos, from.size(), to);
-//        pos += to.size();
-//    } 
-//}
-//
-//int main() {
-//    static httplib::Server server;
-//
-//    // Statik varlıklar (ayı resmi vs.)
-//    server.set_mount_point("/static", "wwwroot/assets");
-//
-//    // GET /  -> login.html
-//    server.Get("/", [](const httplib::Request&, httplib::Response& res) {
-//        string html;
-//        if (!read_text_file("wwwroot/login.html", html)) {
-//            res.status = 500;
-//            res.set_content("login.html not found", "text/plain; charset=UTF-8");
-//            return;
-//        }
-//        res.set_content(html, "text/html; charset=UTF-8");
-//        });
-//
-//    // POST /login -> username ata ve /home'a yönlendir
-//    server.Post("/login", [](const httplib::Request& req, httplib::Response& res) {
-//        if (!req.has_param("username")) {
-//            res.status = 400;
-//            res.set_content("Username is required", "text/plain; charset=UTF-8");
-//            return;
-//        }
-//        username = req.get_param_value("username");
-//
-//        // İleride burada clients.push_back(...) vs. yapmaya devam edebilirsin
-//        // Client newClient(username); clients.push_back(newClient);
-//
-//        res.set_redirect("/home");
-//        });
-//
-//    // YENİ: GET /home -> home.html + {{username}} doldur
-//    server.Get("/home", [](const httplib::Request&, httplib::Response& res) {
-//        if (username.empty()) { res.set_redirect("/"); return; }
-//
-//        string html;
-//        if (!read_text_file("wwwroot/home.html", html)) {
-//            res.status = 500;
-//            res.set_content("home.html not found", "text/plain; charset=UTF-8");
-//            return;
-//        }
-//        replace_all(html, "{{username}}", username);
-//        res.set_content(html, "text/html; charset=UTF-8");
-//        });
-//
-//    // Tarayıcıyı aç & server'ı dinle
-//    ShellExecuteA(NULL, "open", "http://127.0.0.1:8080", NULL, NULL, SW_SHOWNORMAL);
-//    cout << "HTTP server: http://127.0.0.1:8080/ (Ctrl+C to stop)\n";
-//    server.listen("127.0.0.1", 8080);
-//    return 0;
-//}
-#define WIN32_LEAN_AND_MEAN
+﻿#define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -123,13 +26,14 @@ string username;
 vector<Client> clients;
 vector<Message> messages;
 
-// --- dosyadan okuma yardımcıları ---
+//read file from the path and return its content as a string
 static bool read_text_file(const string& path, string& out) {
     ifstream f(path, ios::binary);
     if (!f) return false;
     out.assign(istreambuf_iterator<char>(f), istreambuf_iterator<char>());
     return true;
 }
+// replace all occurrences of 'from' with 'to' in string 's'
 static void replace_all(string& s, const string& from, const string& to) {
     if (from.empty()) return;
     size_t pos = 0;
@@ -161,10 +65,9 @@ static vector<string> g_backlog; // JSON mesajları ({"user":"..","text":".."})
 int main() {
     static httplib::Server server;
 
-    // Statik varlıklar
     server.set_mount_point("/static", "wwwroot/assets");
 
-    // Login sayfası
+    // Login page
     server.Get("/", [](const httplib::Request&, httplib::Response& res) {
         string html;
         if (!read_text_file("wwwroot/login.html", html)) {
@@ -181,7 +84,7 @@ int main() {
         res.set_redirect("/home");
         });
 
-    // HOME sayfası (HTML + username yer değişimi)
+    // HOME page
     server.Get("/home", [](const httplib::Request&, httplib::Response& res) {
         if (username.empty()) { res.set_redirect("/"); return; }
         string html;
@@ -202,12 +105,12 @@ int main() {
             "text/event-stream",
             // ContentProviderWithoutLength
             [last = size_t{ 0 }](size_t /*offset*/, httplib::DataSink& sink) mutable {
-                using namespace std::chrono;
+                using namespace chrono;
 
                 // 1) Yeni mesajları bekle/kopyala (kilit kısa süre tutulur)
-                std::vector<std::string> batch;
+                vector<string> batch;
                 {
-                    std::unique_lock<std::mutex> lk(g_m);
+                    unique_lock<mutex> lk(g_m);
                     if (last >= g_backlog.size()) {
                         g_cv.wait_for(lk, seconds(15)); // heartbeat süresi
                     }
@@ -218,7 +121,7 @@ int main() {
 
                 // 2) Kopyaladıklarımızı gönder
                 for (const auto& j : batch) {
-                    const std::string ev = std::string("event: msg\n") +
+                    const string ev = string("event: msg\n") +
                         "data: " + j + "\n\n";
                     if (!sink.write(ev.data(), ev.size())) return false;
                 }
