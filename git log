@@ -1,0 +1,29 @@
+[33mcommit a9e23e2a33482024090e3f1d773301660e125414[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/master[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mmaster[m[33m)[m
+Author: gurkan <gurkancakmakk@hotmail.com>
+Date:   Mon Aug 18 09:47:44 2025 +0300
+
+    UI, basic messaging
+
+[33mcommit 160902c088d35489f6a42df84f987af727f272ac[m
+Author: gurkan <gurkancakmakk@hotmail.com>
+Date:   Fri Aug 15 09:37:36 2025 +0300
+
+    some order fixes
+
+[33mcommit 93310d04db905b7f7483bd499bd7372701c9e6d2[m
+Author: gurkan <gurkancakmakk@hotmail.com>
+Date:   Thu Aug 14 16:53:49 2025 +0300
+
+    home page, messaging
+
+[33mcommit bf67cf48729e4691899c3261d954741eb72343c0[m
+Author: gurkan <gurkancakmakk@hotmail.com>
+Date:   Thu Aug 14 15:24:47 2025 +0300
+
+    client and message classes are set
+
+[33mcommit e8ba9547a649c8d1f2615281077270f36e20da55[m
+Author: gurkan <gurkancakmakk@hotmail.com>
+Date:   Thu Aug 14 14:57:27 2025 +0300
+
+    start

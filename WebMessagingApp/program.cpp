@@ -11,10 +11,10 @@
 #include <condition_variable>
 #include <chrono>
 #include <algorithm>
+#include <cctype> // trim için
 
 #include "httplib.h"
 #include "Client.h"
-#include "Message.h"
 
 #pragma comment(lib, "Ws2_32.lib")
 #pragma comment(lib, "Shell32.lib")
@@ -23,7 +23,6 @@ using namespace std;
 
 string username;
 vector<Client> clients;
-vector<Message> messages;
 
 // ---------- helpers ----------
 static bool read_text_file(const string& path, string& out) {
@@ -53,13 +52,27 @@ static string json_escape(const string& in) {
     }
     return o;
 }
-
-// ---- Presence via Client::isOnline ----
-static string get_client_name(const Client& c) { return c.getName(); }
+static string trim(const string& s) {
+    size_t i = 0, j = s.size();
+    while (i < j && isspace((unsigned char)s[i])) ++i;
+    while (j > i && isspace((unsigned char)s[j - 1])) --j;
+    return s.substr(i, j - i);
+}
+static string json_array_of_strings(const vector<string>& arr) {
+    string out = "[";
+    bool first = true;
+    for (const auto& v : arr) {
+        if (!first) out += ",";
+        first = false;
+        out += "\"" + json_escape(v) + "\"";
+    }
+    out += "]";
+    return out;
+}
 
 static Client& ensure_client(const string& uname) {
     auto it = find_if(clients.begin(), clients.end(),
-        [&](const Client& c) { return get_client_name(c) == uname; });
+        [&](const Client& c) { return c.getName() == uname; });
     if (it == clients.end()) {
         clients.emplace_back(uname);
         clients.back().setIsOnline(false); // başlangıçta offline
@@ -77,14 +90,14 @@ static string users_json_from_clients_locked() {
     for (auto& c : clients) {
         if (!first) out += ",";
         first = false;
-        out += "{\"user\":\"" + json_escape(get_client_name(c)) +
+        out += "{\"user\":\"" + json_escape(c.getName( )) +
             "\",\"online\":" + (c.getIsOnline() ? string("true") : string("false")) + "}";
     }
     out += "]";
     return out;
 }
 
-// Tek SSE kuyruğu: hem "msg" hem "users" eventlerini tutar
+// Tek SSE kuyruğu: hem "msg" hem "users" hem "sys"
 static vector<string> g_events; // her eleman: "event: X\ndata: {...}\n\n"
 
 static void push_sse(const string& event_name, const string& json_payload) {
@@ -115,13 +128,13 @@ int main() {
         bool changed = false;
         {
             lock_guard<mutex> lk(g_m);
+
             Client& me = ensure_client(username);
             bool was = me.getIsOnline();
             me.setIsOnline(true);
             changed = !was;
         }
         if (changed) {
-            // listeyi kilitleyerek üret, sonra yayınla
             string json;
             { lock_guard<mutex> lk(g_m); json = users_json_from_clients_locked(); }
             push_sse("users", json);
@@ -148,7 +161,7 @@ int main() {
         res.set_content(json, "application/json; charset=UTF-8");
         });
 
-    // SSE /events -> users ve msg yayınları (2 sn heartbeat)
+    // SSE /events -> users, msg, sys yayınları (2 sn heartbeat)
     server.Get("/events", [](const httplib::Request& req, httplib::Response& res) {
         res.set_header("Content-Type", "text/event-stream");
         res.set_header("Cache-Control", "no-cache");
@@ -211,15 +224,83 @@ int main() {
         );
         });
 
-    // POST /send -> mesajı yayınla (msg)
+    // POST /send -> komutları işle (/add, /remove) veya hedeflere mesaj gönder
     server.Post("/send", [](const httplib::Request& req, httplib::Response& res) {
         if (!req.has_param("user") || !req.has_param("text")) {
             res.status = 400; res.set_content("Missing user/text", "text/plain"); return;
         }
         const string user = req.get_param_value("user");
-        const string text = req.get_param_value("text");
-        const string json = string("{\"user\":\"") + json_escape(user) + "\",\"text\":\"" + json_escape(text) + "\"}";
-        push_sse("msg", json);
+        const string raw = req.get_param_value("text");
+        const string text = trim(raw);
+
+        // Komutlar: /add NAME  |  /remove NAME
+        auto begins_with = [&](const string& pref) {
+            return text.size() >= pref.size() && equal(pref.begin(), pref.end(), text.begin());
+            };
+
+        if (begins_with("/add ")) {
+            string target = trim(text.substr(5));
+            if (target.empty()) {
+                string j = string("{\"text\":\"") + json_escape("Usage: /add NAME") +
+                    "\",\"to\":[\"" + json_escape(user) + "\"]}";
+                push_sse("sys", j);
+                res.set_content("OK", "text/plain");
+                return;
+            }
+            {
+                lock_guard<mutex> lk(g_m);
+                Client& me = ensure_client(user);
+                ensure_client(target); // hedef kullanıcı kaydı yoksa oluştur (offline olabilir)
+                me.addDestinationName(target);
+            }
+            string j = string("{\"text\":\"") + json_escape("Added " + target + " to your destinations") +
+                "\",\"to\":[\"" + json_escape(user) + "\"]}";
+            push_sse("sys", j);
+            res.set_content("OK", "text/plain");
+            return;
+        }
+        if (begins_with("/remove ")) {
+            string target = trim(text.substr(8));
+            if (target.empty()) {
+                string j = string("{\"text\":\"") + json_escape("Usage: /remove NAME") +
+                    "\",\"to\":[\"" + json_escape(user) + "\"]}";
+                push_sse("sys", j);
+                res.set_content("OK", "text/plain");
+                return;
+            }
+            {
+                lock_guard<mutex> lk(g_m);
+                Client& me = ensure_client(user);
+                me.removeDestinationName(target);
+            }
+            string j = string("{\"text\":\"") + json_escape("Removed " + target + " from your destinations") +
+                "\",\"to\":[\"" + json_escape(user) + "\"]}";
+            push_sse("sys", j);
+            res.set_content("OK", "text/plain");
+            return;
+        }
+
+        // Normal mesaj: sadece gönderenin hedef listesine gitsin (+ gönderen kendisi de görsün)
+        vector<string> to_list;
+        {
+            lock_guard<mutex> lk(g_m);
+            Client& me = ensure_client(user);
+            to_list = me.getDestinationNames(); // kopya al
+        }
+
+        if (to_list.empty()) {
+            // Hedef yoksa uyarı
+            string j = string("{\"text\":\"") + json_escape("No destinations set. Use /add NAME") +
+                "\",\"to\":[\"" + json_escape(user) + "\"]}";
+            push_sse("sys", j);
+            res.set_content("OK", "text/plain");
+            return;
+        }
+
+        // JSON: {"user":"Alice","text":"...","to":["Bob","Charlie"]}
+        string j = string("{\"user\":\"") + json_escape(user) + "\",\"text\":\"" + json_escape(text) +
+            "\",\"to\":" + json_array_of_strings(to_list) + "}";
+        push_sse("msg", j);
         res.set_content("OK", "text/plain");
         });
 

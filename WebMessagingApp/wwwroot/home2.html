@@ -31,7 +31,9 @@
     .sidebar h2{ margin:0 0 8px; font-size:18px; opacity:.95; }
     .user-list{ list-style:none; margin:0; padding:0; display:grid; gap:8px; }
     .user{ padding:10px 12px; border-radius:10px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.18); display:flex; align-items:center; gap:10px; }
-    .user .dot{ width:10px; height:10px; border-radius:50%; background:#22c55e; box-shadow:0 0 0 3px rgba(34,197,94,.25); }
+    .dot{ width:10px; height:10px; border-radius:50%; }
+    .dot.on  { background:#22c55e; box-shadow:0 0 0 3px rgba(34,197,94,.25); }
+    .dot.off { background:#ef4444; box-shadow:0 0 0 3px rgba(239,68,68,.25); }
     .chat{ display:flex; flex-direction:column; min-height:70vh; }
     .chat-header{ padding:16px 18px; border-bottom:1px solid rgba(255,255,255,.15); display:flex; align-items:center; justify-content:space-between; }
     .chat-header .hello{ font-size:18px; opacity:.95; }
@@ -48,16 +50,10 @@
 </head>
 <body>
   <main class="page">
-
     <aside class="sidebar card">
       <h2>Users</h2>
-      <ul class="user-list" id="userList">
-        <li class="user"><span class="dot"></span><span class="name">Alice</span></li>
-        <li class="user"><span class="dot"></span><span class="name">Bob</span></li>
-        <li class="user"><span class="dot"></span><span class="name">Charlie</span></li>
-      </ul>
+      <ul class="user-list" id="userList"></ul>
     </aside>
-
 
     <section class="chat card">
       <div class="chat-header">
@@ -75,44 +71,72 @@
 
   <script>
     const username = "{{username}}";
-    const msgs = document.getElementById('messages');
-    const form = document.getElementById('chatForm');
-    const input = document.getElementById('text');
+    const $list = document.getElementById('userList');
+    const $msgs = document.getElementById('messages');
+    const $form = document.getElementById('chatForm');
+    const $input = document.getElementById('text');
 
-
-      function appendMessage(user, text) {
-      const wrap = document.createElement('div');
-      wrap.className = 'msg' + (user === username ? ' me' : '');
-      const meta = document.createElement('div');
-      meta.className = 'meta';
-      meta.textContent = user;
-      const body = document.createElement('div');
-      body.textContent = text;
-      wrap.appendChild(meta); wrap.appendChild(body);
-      msgs.appendChild(wrap);
-      msgs.scrollTop = msgs.scrollHeight;
+    function renderAllUsers(arr){
+      $list.innerHTML = '';
+      arr.forEach(({user, online}) => {
+        const li = document.createElement('li');
+        li.className = 'user';
+        li.innerHTML = `<span class="dot ${online ? 'on':'off'}"></span><span class="name"></span>`;
+        li.querySelector('.name').textContent = user;
+        $list.appendChild(li);
+      });
     }
 
-    const es = new EventSource('/events');
-    es.addEventListener('msg', (ev) => {
+    function appendMessage(user, text){
+      const wrap = document.createElement('div');
+      wrap.className = 'msg' + (user === username ? ' me' : '');
+      wrap.innerHTML = `<div class="meta">${user}</div><div>${text}</div>`;
+      $msgs.appendChild(wrap);
+      $msgs.scrollTop = $msgs.scrollHeight;
+    }
+
+    // Açılışta mevcut kullanıcıları al
+    fetch('/users').then(r => r.json()).then(renderAllUsers);
+
+    // SSE (kullanıcı adıyla)
+    const es = new EventSource('/events?user=' + encodeURIComponent(username));
+
+    es.addEventListener('users', ev => {
+      try { renderAllUsers(JSON.parse(ev.data)); } catch {}
+    });
+
+    es.addEventListener('msg', ev => {
       try {
         const m = JSON.parse(ev.data);
         appendMessage(m.user, m.text);
       } catch {}
     });
 
-    form.addEventListener('submit', (e) => {
+    // Mesaj gönder
+    $form.addEventListener('submit', (e) => {
       e.preventDefault();
-      const text = input.value.trim();
+      const text = $input.value.trim();
       if(!text) return;
       fetch('/send', {
         method: 'POST',
         headers: {'Content-Type':'application/x-www-form-urlencoded'},
         body: 'user=' + encodeURIComponent(username) + '&text=' + encodeURIComponent(text)
       });
-      input.value = ''; input.focus();
-
+      $input.value = ''; $input.focus();
     });
+
+    // Sekme/pencere tamamen kapanırken offline bildir (sekme değiştirince DEĞİL)
+    function sendLeave() {
+      const data = new Blob(
+        ['user=' + encodeURIComponent(username)],
+        { type: 'application/x-www-form-urlencoded' }
+      );
+      navigator.sendBeacon('/leave', data);
+    }
+    // Sadece kapanma/navigasyon anlarında çalışsın:
+    window.addEventListener('pagehide', sendLeave);
+    window.addEventListener('beforeunload', sendLeave);
+    // DİKKAT: visibilitychange kaldırıldı (sekme değiştirince tetiklenmesin)
   </script>
 </body>
 </html>
