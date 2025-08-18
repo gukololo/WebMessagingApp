@@ -7,6 +7,7 @@ Client::Client(string nameToSet)
 {
 	cout << "Client " << nameToSet << " entered." << endl;
 	setName(nameToSet);
+	isOnline = true; // Default to online status when a client is created
 }
 
 string Client::getName() const

@@ -1,22 +1,23 @@
 <!doctype html>
-<html>
+<html lang="tr">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Login</title>
   <style>
+    :root{ --glass: rgba(0,0,0,.55); --radius: 16px; }
     html, body { height:100%; margin:0; }
-    body {
+    body{
       display:flex; align-items:center; justify-content:center;
       background: url('/static/ayi.jpg') center center / cover no-repeat fixed;
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
       color:#fff;
     }
-    .card {
+    .card{
       width:min(90%, 420px);
       padding:24px 28px;
-      border-radius:16px;
-      background:rgba(0,0,0,0.55);
+      border-radius:var(--radius);
+      background:var(--glass);
       backdrop-filter: blur(3px);
       box-shadow: 0 10px 30px rgba(0,0,0,.35);
     }

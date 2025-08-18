@@ -5,8 +5,6 @@ VisualStudioVersion = 17.10.35027.167
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "WebMessagingApp", "WebMessagingApp\WebMessagingApp.vcxproj", "{6448DAC0-CD00-4D11-A79F-8A18EAC903EE}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Server", "Server\Server.vcxproj", "{74BB7E51-0ED9-498C-B2A4-8D7C34F6B2CD}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -23,14 +21,6 @@ Global
 		{6448DAC0-CD00-4D11-A79F-8A18EAC903EE}.Release|x64.Build.0 = Release|x64
 		{6448DAC0-CD00-4D11-A79F-8A18EAC903EE}.Release|x86.ActiveCfg = Release|Win32
 		{6448DAC0-CD00-4D11-A79F-8A18EAC903EE}.Release|x86.Build.0 = Release|Win32
-		{74BB7E51-0ED9-498C-B2A4-8D7C34F6B2CD}.Debug|x64.ActiveCfg = Debug|x64
-		{74BB7E51-0ED9-498C-B2A4-8D7C34F6B2CD}.Debug|x64.Build.0 = Debug|x64
-		{74BB7E51-0ED9-498C-B2A4-8D7C34F6B2CD}.Debug|x86.ActiveCfg = Debug|Win32
-		{74BB7E51-0ED9-498C-B2A4-8D7C34F6B2CD}.Debug|x86.Build.0 = Debug|Win32
-		{74BB7E51-0ED9-498C-B2A4-8D7C34F6B2CD}.Release|x64.ActiveCfg = Release|x64
-		{74BB7E51-0ED9-498C-B2A4-8D7C34F6B2CD}.Release|x64.Build.0 = Release|x64
-		{74BB7E51-0ED9-498C-B2A4-8D7C34F6B2CD}.Release|x86.ActiveCfg = Release|Win32
-		{74BB7E51-0ED9-498C-B2A4-8D7C34F6B2CD}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
