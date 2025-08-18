@@ -11,7 +11,6 @@
 #include <condition_variable>
 #include <chrono>
 #include <algorithm>
-#include <cctype> // trim için
 
 #include "httplib.h"
 #include "Client.h"
@@ -20,22 +19,29 @@
 #pragma comment(lib, "Shell32.lib")
 
 using namespace std;
+using namespace chrono;
 
 string username;
-vector<Client> clients;
+static vector<Client> clients;
+static mutex g_m;
+static condition_variable g_cv;
 
-// ---------- helpers ----------
+//helper method to read a text file into a string
 static bool read_text_file(const string& path, string& out) {
     ifstream f(path, ios::binary);
     if (!f) return false;
     out.assign(istreambuf_iterator<char>(f), istreambuf_iterator<char>());
     return true;
 }
+
+//helper methods for string manipulation
 static void replace_all(string& s, const string& from, const string& to) {
     if (from.empty()) return;
     size_t pos = 0;
     while ((pos = s.find(from, pos)) != string::npos) { s.replace(pos, from.size(), to); pos += to.size(); }
 }
+
+//helper method to escape JSON strings
 static string json_escape(const string& in) {
     string o; o.reserve(in.size());
     for (unsigned char c : in) {
@@ -52,6 +58,7 @@ static string json_escape(const string& in) {
     }
     return o;
 }
+
 static string trim(const string& s) {
     size_t i = 0, j = s.size();
     while (i < j && isspace((unsigned char)s[i])) ++i;
@@ -70,20 +77,26 @@ static string json_array_of_strings(const vector<string>& arr) {
     return out;
 }
 
-static Client& ensure_client(const string& uname) {
-    auto it = find_if(clients.begin(), clients.end(),
-        [&](const Client& c) { return c.getName() == uname; });
-    if (it == clients.end()) {
-        clients.emplace_back(uname);
-        clients.back().setIsOnline(false); // başlangıçta offline
-        return clients.back();
+/*
+*method to check if the given name exists in the storage of clients.if not it creates a new client with that name
+*@param name: the name of the client to check
+* @return: a reference to the existing or newly created client
+*/
+static Client& ensure_client(const string& name) {
+    
+    for (Client& c : clients) {
+        if(c.getName() == name) {
+            return c;
+		}
     }
-    return *it;
+    Client new_client(name);
+    clients.push_back(new_client);
+    return clients.back(); 
+
 }
 
 // clients -> JSON (kilit içeride)
-static mutex g_m;
-static condition_variable g_cv;
+
 static string users_json_from_clients_locked() {
     string out = "[";
     bool first = true;
@@ -190,7 +203,6 @@ int main() {
             "text/event-stream",
             // provider
             [last = size_t{ 0 }](size_t /*offset*/, httplib::DataSink& sink) mutable {
-                using namespace std::chrono;
                 vector<string> batch;
                 {
                     unique_lock<mutex> lk(g_m);
@@ -250,7 +262,6 @@ int main() {
             {
                 lock_guard<mutex> lk(g_m);
                 Client& me = ensure_client(user);
-                ensure_client(target); // hedef kullanıcı kaydı yoksa oluştur (offline olabilir)
                 me.addDestinationName(target);
             }
             string j = string("{\"text\":\"") + json_escape("Added " + target + " to your destinations") +
@@ -259,6 +270,7 @@ int main() {
             res.set_content("OK", "text/plain");
             return;
         }
+
         if (begins_with("/remove ")) {
             string target = trim(text.substr(8));
             if (target.empty()) {
