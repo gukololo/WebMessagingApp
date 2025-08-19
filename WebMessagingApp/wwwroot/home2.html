@@ -40,6 +40,7 @@
     .messages{ flex:1; overflow:auto; padding:18px; display:flex; flex-direction:column; gap:10px; }
     .msg{ max-width:70%; padding:10px 12px; border-radius:12px; background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.15); }
     .msg.me{ align-self:flex-end; background:rgba(59,130,246,.25); border-color:rgba(59,130,246,.45); }
+    .msg.sys{ opacity:.85; font-style:italic; }
     .meta{ font-size:12px; opacity:.8; margin-bottom:4px; }
     .chat-input{ border-top:1px solid rgba(255,255,255,.15); padding:12px; display:flex; gap:10px; }
     .chat-input input[type="text"]{ flex:1; min-width:0; padding:12px; border-radius:12px; border:1px solid rgba(255,255,255,.25); background:rgba(255,255,255,.08); color:#fff; outline:none; }
@@ -63,7 +64,7 @@
       <div class="messages" id="messages"></div>
 
       <form class="chat-input" id="chatForm" autocomplete="off">
-        <input type="text" id="text" name="text" placeholder="Type a message..." required>
+        <input type="text" id="text" name="text" placeholder="Type a message...  (/add NAME  |  /remove NAME)" required>
         <button type="submit">Send</button>
       </form>
     </section>
@@ -94,11 +95,18 @@
       $msgs.appendChild(wrap);
       $msgs.scrollTop = $msgs.scrollHeight;
     }
+    function appendSystem(text){
+      const wrap = document.createElement('div');
+      wrap.className = 'msg sys';
+      wrap.innerHTML = `<div class="meta">system</div><div>${text}</div>`;
+      $msgs.appendChild(wrap);
+      $msgs.scrollTop = $msgs.scrollHeight;
+    }
 
     // Açılışta mevcut kullanıcıları al
     fetch('/users').then(r => r.json()).then(renderAllUsers);
 
-    // SSE (kullanıcı adıyla)
+    // SSE (kullanıcı adıyla) — sadece hedefe gelen mesajları göster
     const es = new EventSource('/events?user=' + encodeURIComponent(username));
 
     es.addEventListener('users', ev => {
@@ -107,12 +115,25 @@
 
     es.addEventListener('msg', ev => {
       try {
-        const m = JSON.parse(ev.data);
-        appendMessage(m.user, m.text);
+        const m = JSON.parse(ev.data); // {user, text, to:[...]}
+        const targets = Array.isArray(m.to) ? m.to : [];
+        if (m.user === username || targets.includes(username)) {
+          appendMessage(m.user, m.text);
+        }
       } catch {}
     });
 
-    // Mesaj gönder
+    es.addEventListener('sys', ev => {
+      try {
+        const s = JSON.parse(ev.data); // {text, to:[...]}
+        const targets = Array.isArray(s.to) ? s.to : [];
+        if (targets.length === 0 || targets.includes(username)) {
+          appendSystem(s.text);
+        }
+      } catch {}
+    });
+
+    // Mesaj / komut gönder
     $form.addEventListener('submit', (e) => {
       e.preventDefault();
       const text = $input.value.trim();
@@ -133,10 +154,8 @@
       );
       navigator.sendBeacon('/leave', data);
     }
-    // Sadece kapanma/navigasyon anlarında çalışsın:
     window.addEventListener('pagehide', sendLeave);
     window.addEventListener('beforeunload', sendLeave);
-    // DİKKAT: visibilitychange kaldırıldı (sekme değiştirince tetiklenmesin)
   </script>
 </body>
 </html>

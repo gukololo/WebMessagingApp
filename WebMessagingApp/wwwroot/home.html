@@ -2,6 +2,7 @@
 <html lang="tr">
 <head>
   <meta charset="utf-8">
+  <meta http-equiv="Cache-Control" content="no-store" />
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Main Page</title>
   <style>
@@ -106,16 +107,17 @@
     // Açılışta mevcut kullanıcıları al
     fetch('/users').then(r => r.json()).then(renderAllUsers);
 
-    // SSE (kullanıcı adıyla) — sadece hedefe gelen mesajları göster
+    // ÖNEMLİ: SSE'yi kullanıcı adıyla aç (presence için)
     const es = new EventSource('/events?user=' + encodeURIComponent(username));
 
+    // ÖNEMLİ: users event’i gelince listeyi komple tazele
     es.addEventListener('users', ev => {
       try { renderAllUsers(JSON.parse(ev.data)); } catch {}
     });
 
     es.addEventListener('msg', ev => {
       try {
-        const m = JSON.parse(ev.data); // {user, text, to:[...]}
+        const m = JSON.parse(ev.data); // {user,text,to:[...]}
         const targets = Array.isArray(m.to) ? m.to : [];
         if (m.user === username || targets.includes(username)) {
           appendMessage(m.user, m.text);
@@ -125,7 +127,7 @@
 
     es.addEventListener('sys', ev => {
       try {
-        const s = JSON.parse(ev.data); // {text, to:[...]}
+        const s = JSON.parse(ev.data); // {text,to:[...]}
         const targets = Array.isArray(s.to) ? s.to : [];
         if (targets.length === 0 || targets.includes(username)) {
           appendSystem(s.text);
@@ -146,7 +148,7 @@
       $input.value = ''; $input.focus();
     });
 
-    // Sekme/pencere tamamen kapanırken offline bildir (sekme değiştirince DEĞİL)
+    // Pencere/sekme kapanırken offline bildir (sekme değiştirince değil)
     function sendLeave() {
       const data = new Blob(
         ['user=' + encodeURIComponent(username)],
